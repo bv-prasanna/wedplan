@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS app_users (id UUID PRIMARY KEY, email VARCHAR(254) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(32) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS weddings (id UUID PRIMARY KEY, owner_id UUID NOT NULL REFERENCES app_users(id), title VARCHAR(200) NOT NULL, city VARCHAR(120), event_date DATE, total_budget_paise BIGINT NOT NULL DEFAULT 0 CHECK(total_budget_paise>=0), created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS idx_weddings_owner ON weddings(owner_id);
+CREATE TABLE IF NOT EXISTS ceremonies (id UUID PRIMARY KEY, wedding_id UUID NOT NULL REFERENCES weddings(id) ON DELETE CASCADE, name VARCHAR(120) NOT NULL, event_date DATE, venue VARCHAR(250));
+CREATE TABLE IF NOT EXISTS vendors (id UUID PRIMARY KEY, display_name VARCHAR(200) NOT NULL, category VARCHAR(80) NOT NULL, city VARCHAR(120), approved BOOLEAN NOT NULL DEFAULT FALSE);
+CREATE INDEX IF NOT EXISTS idx_vendors_approved_category ON vendors(approved,category);
+CREATE TABLE IF NOT EXISTS enquiries (id UUID PRIMARY KEY, wedding_id UUID NOT NULL REFERENCES weddings(id), vendor_id UUID NOT NULL REFERENCES vendors(id), message VARCHAR(4000) NOT NULL, status VARCHAR(32) NOT NULL DEFAULT 'REQUESTED', created_at TIMESTAMPTZ NOT NULL DEFAULT now());
