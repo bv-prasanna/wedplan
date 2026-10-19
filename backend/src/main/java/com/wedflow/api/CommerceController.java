@@ -47,6 +47,7 @@ public class CommerceController {
   try{
     db.update("INSERT INTO vendor_bookings(id,quote_id,wedding_id,vendor_id,service_date) VALUES(?,?,?,?,?)",id,quoteId,weddingId,vendor,serviceDate);
     db.update("UPDATE vendor_quotes SET status='ACCEPTED' WHERE id=? AND status='OFFERED'",quoteId);
+    db.update("INSERT INTO user_notifications(id,user_id,kind,title,body) SELECT ?,owner_id,'BOOKING','New confirmed booking','A customer accepted your quotation' FROM vendor_profiles WHERE id=?",UUID.randomUUID(),vendor);
   }catch(DataIntegrityViolationException ex){throw new ResponseStatusException(HttpStatus.CONFLICT,"Booking conflict");}
   return java.util.Map.of("id",id,"status","CONFIRMED","serviceDate",serviceDate);
  }
