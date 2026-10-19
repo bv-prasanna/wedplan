@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
+import java.time.LocalDate;
+import org.springframework.dao.DataIntegrityViolationException;
 import java.util.UUID;
 
 @RestController @RequestMapping("/api/v1")
@@ -29,8 +31,24 @@ public class CommerceController {
   vendorOwner(vendorId);Integer n=db.queryForObject("SELECT COUNT(*) FROM enquiries WHERE id=? AND vendor_id=?",Integer.class,in.enquiryId(),vendorId);if(n==null||n==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);UUID id=UUID.randomUUID();db.update("INSERT INTO vendor_quotes(id,enquiry_id,vendor_id,amount_paise,description) VALUES(?,?,?,?,?)",id,in.enquiryId(),vendorId,in.amountPaise(),in.description());return java.util.Map.of("id",id,"status","OFFERED");
  }
  @GetMapping("/weddings/{weddingId}/quotes") public List<java.util.Map<String,Object>> quotes(@PathVariable UUID weddingId){owner(weddingId);return db.query("SELECT q.id,q.vendor_id,q.amount_paise,q.status FROM vendor_quotes q JOIN enquiries e ON q.enquiry_id=e.id WHERE e.wedding_id=?",(rs,n)->java.util.Map.of("id",rs.getObject(1,UUID.class),"vendorId",rs.getObject(2,UUID.class),"amountPaise",rs.getLong(3),"status",rs.getString(4)),weddingId);}
- @PostMapping("/weddings/{weddingId}/quotes/{quoteId}/accept") @ResponseStatus(HttpStatus.CREATED) @Transactional public java.util.Map<String,Object> accept(@PathVariable UUID weddingId,@PathVariable UUID quoteId){
-  owner(weddingId);List<UUID> vendors=db.query("SELECT q.vendor_id FROM vendor_quotes q JOIN enquiries e ON e.id=q.enquiry_id WHERE q.id=? AND e.wedding_id=? AND q.status='OFFERED' FOR UPDATE OF q",(rs,n)->rs.getObject(1,UUID.class),quoteId,weddingId);if(vendors.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Quote not available");UUID id=UUID.randomUUID();db.update("UPDATE vendor_quotes SET status='ACCEPTED' WHERE id=?",quoteId);db.update("INSERT INTO vendor_bookings(id,quote_id,wedding_id,vendor_id) VALUES(?,?,?,?)",id,quoteId,weddingId,vendors.get(0));return java.util.Map.of("id",id,"status","CONFIRMED");
+ @PostMapping("/weddings/{weddingId}/quotes/{quoteId}/accept") @ResponseStatus(HttpStatus.CREATED) @Transactional public java.util.Map<String,Object> accept(@PathVariable UUID weddingId,@PathVariable UUID quoteId,@RequestParam LocalDate serviceDate){
+  owner(weddingId);
+  if(serviceDate.isBefore(LocalDate.now()))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Service date cannot be in the past");
+  List<UUID> vendors=db.query("SELECT q.vendor_id FROM vendor_quotes q JOIN enquiries e ON e.id=q.enquiry_id WHERE q.id=? AND e.wedding_id=? AND q.status='OFFERED' FOR UPDATE OF q",(rs,n)->rs.getObject(1,UUID.class),quoteId,weddingId);
+  if(vendors.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Quote not available");
+  UUID vendor=vendors.get(0);
+  // Serialize acceptance and unavailability changes on the vendor row.
+  db.query("SELECT id FROM vendors WHERE id=? AND approved=true FOR UPDATE",(rs,n)->rs.getObject(1,UUID.class),vendor);
+  Integer approved=db.queryForObject("SELECT COUNT(*) FROM vendors WHERE id=? AND approved=true",Integer.class,vendor);
+  Integer blocked=db.queryForObject("SELECT COUNT(*) FROM vendor_unavailability WHERE vendor_id=? AND unavailable_date=?",Integer.class,vendor,serviceDate);
+  Integer booked=db.queryForObject("SELECT COUNT(*) FROM vendor_bookings WHERE vendor_id=? AND service_date=? AND status='CONFIRMED'",Integer.class,vendor,serviceDate);
+  if(approved==null||approved==0||blocked==null||blocked>0||booked==null||booked>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Vendor unavailable");
+  UUID id=UUID.randomUUID();
+  try{
+    db.update("INSERT INTO vendor_bookings(id,quote_id,wedding_id,vendor_id,service_date) VALUES(?,?,?,?,?)",id,quoteId,weddingId,vendor,serviceDate);
+    db.update("UPDATE vendor_quotes SET status='ACCEPTED' WHERE id=? AND status='OFFERED'",quoteId);
+  }catch(DataIntegrityViolationException ex){throw new ResponseStatusException(HttpStatus.CONFLICT,"Booking conflict");}
+  return java.util.Map.of("id",id,"status","CONFIRMED","serviceDate",serviceDate);
  }
  @GetMapping("/weddings/{weddingId}/bookings") public List<java.util.Map<String,Object>> bookings(@PathVariable UUID weddingId){owner(weddingId);return db.query("SELECT id,vendor_id,status FROM vendor_bookings WHERE wedding_id=?",(rs,n)->java.util.Map.of("id",rs.getObject(1,UUID.class),"vendorId",rs.getObject(2,UUID.class),"status",rs.getString(3)),weddingId);}
  @PostMapping("/weddings/{weddingId}/bookings/{bookingId}/cancel") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void cancel(@PathVariable UUID weddingId,@PathVariable UUID bookingId){owner(weddingId);if(db.update("UPDATE vendor_bookings SET status='CANCELLED' WHERE id=? AND wedding_id=? AND status='CONFIRMED'",bookingId,weddingId)==0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Booking cannot be cancelled");}
