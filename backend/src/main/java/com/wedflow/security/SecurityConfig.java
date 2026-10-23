@@ -6,6 +6,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
+import java.util.Arrays;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,9 +35,19 @@ import java.util.UUID;
 
 @Configuration
 public class SecurityConfig {
+  @Bean CorsConfigurationSource corsConfigurationSource(@Value("${WEDFLOW_ALLOWED_ORIGINS:}") String origins) {
+    CorsConfiguration config=new CorsConfiguration();
+    if(!origins.isBlank()) config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(v->!v.isEmpty()).toList());
+    config.setAllowedMethods(List.of("GET","POST","PATCH","PUT","DELETE","OPTIONS"));
+    config.setAllowedHeaders(List.of("Authorization","Content-Type"));
+    config.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source=new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/api/**",config);
+    return source;
+  }
   @Bean PasswordEncoder passwordEncoder(){return new BCryptPasswordEncoder(12);}
   @Bean SecurityFilterChain security(HttpSecurity http, BearerFilter bearer) throws Exception {
-    return http.csrf(csrf->csrf.disable())
+    return http.csrf(csrf->csrf.disable()).cors(cors->{}).headers(headers->headers.contentTypeOptions(opts->{}).frameOptions(frame->frame.deny()))
       .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
       .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/register","/api/v1/auth/login","/api/v1/vendors","/actuator/health").permitAll().anyRequest().authenticated())
       .addFilterBefore(bearer,UsernamePasswordAuthenticationFilter.class).build();
