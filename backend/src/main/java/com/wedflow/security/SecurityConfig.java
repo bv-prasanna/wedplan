@@ -49,7 +49,7 @@ public class SecurityConfig {
   @Bean SecurityFilterChain security(HttpSecurity http, BearerFilter bearer) throws Exception {
     return http.csrf(csrf->csrf.disable()).cors(cors->{}).headers(headers->headers.contentTypeOptions(opts->{}).frameOptions(frame->frame.deny()))
       .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-      .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/register","/api/v1/auth/login","/api/v1/vendors","/actuator/health").permitAll().anyRequest().authenticated())
+      .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/register","/api/v1/auth/login","/api/v1/vendors","/actuator/health","/api/v1/razorpay/webhook").permitAll().anyRequest().authenticated())
       .addFilterBefore(bearer,UsernamePasswordAuthenticationFilter.class).build();
   }
   public static UUID currentUser(){
