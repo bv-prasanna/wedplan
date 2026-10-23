@@ -19,6 +19,19 @@ public class RazorpayWebhookController {
   JsonNode payment=payload.path("payload").path("payment").path("entity");
   String providerPaymentId=payment.path("id").asText();
   String orderId=payment.path("order_id").asText();
+  if(event.equals("refund.processed")||event.equals("refund.failed")){
+    JsonNode refund=payload.path("payload").path("refund").path("entity");
+    String refundId=refund.path("id").asText();
+    if(!refundId.startsWith("rfnd_"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid refund id");
+    var refunds=db.query("SELECT r.id,r.amount_paise,p.razorpay_payment_id FROM payment_refunds r JOIN payment_records p ON p.id=r.payment_id WHERE r.razorpay_refund_id=? FOR UPDATE OF r",(rs,n)->new Object[]{rs.getObject(1,UUID.class),rs.getLong(2),rs.getString(3)},refundId);
+    if(refunds.isEmpty())return;
+    Object[] row=refunds.get(0);
+    if(refund.path("amount").asLong(-1)!=(long)row[1]||!refund.path("payment_id").asText().equals(row[2])||!"INR".equals(refund.path("currency").asText()))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Refund mismatch");
+    int inserted=db.update("INSERT INTO payment_events(id,payment_id,provider_event_id,event_type) SELECT ?,payment_id,?,? FROM payment_refunds WHERE id=? ON CONFLICT(provider_event_id) DO NOTHING",UUID.randomUUID(),eventId,event,(UUID)row[0]);
+    if(inserted==0)return;
+    db.update("UPDATE payment_refunds SET status=? WHERE id=? AND status='PENDING'",event.equals("refund.processed")?"PROCESSED":"FAILED",(UUID)row[0]);
+    return;
+  }
   if(!event.equals("payment.captured")&&!event.equals("payment.failed"))return;
   if(providerPaymentId.isBlank()||orderId.isBlank())throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
   var records=db.query("SELECT id,amount_paise FROM payment_records WHERE razorpay_order_id=? FOR UPDATE",(rs,n)->new Object[]{rs.getObject(1,UUID.class),rs.getLong(2)},orderId);
