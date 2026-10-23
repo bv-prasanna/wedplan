@@ -27,6 +27,6 @@ import java.util.Map;
    var response=client.send(req,HttpResponse.BodyHandlers.ofString());
    if(response.statusCode()<200||response.statusCode()>=300)throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment provider request failed");
    return mapper.readTree(response.body());
-  }catch(ResponseStatusException e){throw e;}catch(Exception e){Thread.currentThread().interrupt();throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment provider unavailable");}
+  }catch(ResponseStatusException e){throw e;}catch(InterruptedException e){Thread.currentThread().interrupt();throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment provider interrupted");}catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment provider unavailable");}
  }
 }
