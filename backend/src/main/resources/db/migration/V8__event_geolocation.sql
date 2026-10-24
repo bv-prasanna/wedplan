@@ -1,0 +1,12 @@
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7);
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7);
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS location_source VARCHAR(30) NOT NULL DEFAULT 'UNAVAILABLE';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS location_accuracy_m NUMERIC(12,2);
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS location_recorded_at TIMESTAMPTZ;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS location_unavailable_reason VARCHAR(80);
+ALTER TABLE audit_events ADD CONSTRAINT ck_audit_geo_pair CHECK ((latitude IS NULL) = (longitude IS NULL));
+ALTER TABLE audit_events ADD CONSTRAINT ck_audit_latitude CHECK (latitude BETWEEN -90 AND 90);
+ALTER TABLE audit_events ADD CONSTRAINT ck_audit_longitude CHECK (longitude BETWEEN -180 AND 180);
+ALTER TABLE audit_events ADD CONSTRAINT ck_audit_accuracy CHECK (location_accuracy_m IS NULL OR location_accuracy_m >= 0);
+CREATE INDEX IF NOT EXISTS idx_audit_events_subject_time ON audit_events(subject_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_events_actor_time ON audit_events(actor_id,created_at DESC);
