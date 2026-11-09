@@ -9,6 +9,7 @@ const store = {
   weddings: [],
   weddingId: sessionStorage.getItem("wedflow_wedding") || "",
   vendorId: "",
+  geo: null,
   vendorsQuery: {category:"", city:""},
 };
 let toastTimer;
@@ -28,7 +29,12 @@ async function api(path, {method="GET", body} = {}) {
       headers: {
         Accept: "application/json",
         ...(body === undefined ? {} : {"Content-Type": "application/json"}),
-        ...(store.token ? {Authorization: "Bearer " + store.token} : {})
+        ...(store.token ? {Authorization: "Bearer " + store.token} : {}),
+        ...(method !== "GET" && store.geo && Date.now() - store.geo.at < 300000 ? {
+          "X-Geo-Latitude": String(store.geo.latitude),
+          "X-Geo-Longitude": String(store.geo.longitude),
+          "X-Geo-Accuracy-M": String(store.geo.accuracy)
+        } : {})
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store"
@@ -112,6 +118,7 @@ function shell(route) {
         <div><div class="eyebrow">Wedding planning studio</div><strong class="serif" style="font-size:1.15rem">Your celebration, organized.</strong></div>
         <div class="topbar-right">
           ${store.weddings.length ? '<select class="top-select" aria-label="Selected wedding" id="wedding-picker"><option value="">Select wedding</option>' + weddingOptions + '</select>' : ''}
+          <button type="button" class="btn sm secondary location-btn" data-location title="Share device location for new audit events only">Enable location</button>
           <div class="user-pill"><span class="avatar">${e((store.me?.email || "W")[0].toUpperCase())}</span><span class="role-text">${e(store.me?.role || "MEMBER")}</span></div>
           <button class="btn sm secondary" type="button" data-logout title="Sign out">Exit</button>
         </div>
@@ -493,14 +500,23 @@ async function navigate(){
   }
 }
 root.addEventListener("click",async ev=>{
-  const target=ev.target.closest("[data-logout],[data-choose],[data-task],[data-cancel],[data-checkout],[data-read],[data-vendor-approve],[data-vendor-reject],[data-retry]");
+  const target=ev.target.closest("[data-logout],[data-choose],[data-task],[data-cancel],[data-checkout],[data-read],[data-vendor-approve],[data-vendor-reject],[data-retry],[data-location]");
   if(!target)return;
   const action=target.dataset;
   target.disabled=true;
   try{
+    if("location" in action){
+      if(store.geo){store.geo=null;toast("Location sharing disabled for future requests.");await navigate();return;}
+      if(!navigator.geolocation)throw new Error("Geolocation is not supported on this device.");
+      await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(pos=>{
+        store.geo={latitude:pos.coords.latitude,longitude:pos.coords.longitude,
+          accuracy:pos.coords.accuracy,at:Date.now()};resolve();
+      },err=>reject(new Error(err.code===1?"Location permission denied. Events will still be recorded without coordinates.":"Could not obtain device location. Try again.")),{enableHighAccuracy:true,timeout:12000,maximumAge:0}));
+      toast("Location enabled for new changes. Coordinates expire after five minutes.");await navigate();return;
+    }
     if("logout" in action){
       try{await api("/auth/logout",{method:"POST"});}catch{ /* revoke local access even if network is down */ }
-      store.token="";store.me=null;store.weddings=[];sessionStorage.removeItem("wedflow_token");sessionStorage.removeItem("wedflow_wedding");
+      store.token="";store.me=null;store.weddings=[];store.geo=null;sessionStorage.removeItem("wedflow_token");sessionStorage.removeItem("wedflow_wedding");
       location.hash="#/login";await navigate();return;
     }
     if(action.choose){
