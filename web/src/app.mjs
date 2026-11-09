@@ -68,9 +68,9 @@ function form(id, handler) {
   });
 }
 const button = (label, cls="btn") => '<button type="submit" class="' + cls + '">' + e(label) + '</button>';
-const field = (label, name, type="text", options="") =>
+const field = (label, name, type="text", options="", required=true) =>
   '<div class="field"><label for="' + e(name) + '">' + e(label) + '</label><input id="' + e(name) +
-  '" name="' + e(name) + '" type="' + type + '" ' + options + ' required></div>';
+  '" name="' + e(name) + '" type="' + type + '" ' + options + (required ? ' required' : '') + '></div>';
 const empty = (title, description) =>
   '<div class="empty"><div class="empty-icon" aria-hidden="true">✧</div><h3>' + e(title) +
   '</h3><p>' + e(description) + '</p></div>';
@@ -242,7 +242,7 @@ async function planning(tab="ceremonies"){
        <section class="panel"><h2>Add a ceremony</h2><form id="ceremony"><div class="form-grid">
        ${field("Ceremony name","name","text",'maxlength="120" placeholder="Reception"')}
        ${field("Date","eventDate","date")}
-       ${field("Venue / location","venue","text",'maxlength="250" placeholder="Venue name"')}
+       ${field("Venue / location","venue","text",'maxlength="250" placeholder="Venue name"',false)}
        </div><div class="form-actions">${button("Add ceremony")}</div></form></section></div>`;
     binder=()=>form("ceremony",async v=>{await api("/weddings/"+id+"/ceremonies",{method:"POST",body:v});toast("Ceremony added.");await navigate();});
   } else if(tab==="guests"){
@@ -251,7 +251,7 @@ async function planning(tab="ceremonies"){
        ${rows.length?'<div class="list">'+rows.map(x=>item(x.fullName,x.phone||"No phone",'<select aria-label="RSVP status for '+e(x.fullName)+'" data-rsvp="'+e(x.id)+'">'+["PENDING","ACCEPTED","DECLINED"].map(s=>'<option '+(s===x.rsvp?'selected':'')+'>'+s+'</option>').join("")+'</select>')).join("")+'</div>':empty("Your guest list is empty","Add guests and track invitations and RSVP status.")}</section>
        <section class="panel"><h2>Add guest</h2><form id="guest"><div class="stack">
        ${field("Full name","fullName","text",'maxlength="160" placeholder="Guest name"')}
-       ${field("Phone number (optional)","phone","tel",'maxlength="30" placeholder="Optional"')}
+       ${field("Phone number (optional)","phone","tel",'maxlength="30" placeholder="Optional"',false)}
        </div><div class="form-actions">${button("Add guest")}</div></form></section></div>`;
     binder=()=>form("guest",async v=>{await api("/weddings/"+id+"/guests",{method:"POST",body:{fullName:v.fullName,phone:v.phone||null}});toast("Guest added.");await navigate();});
   } else if(tab==="tasks"){
@@ -260,7 +260,7 @@ async function planning(tab="ceremonies"){
       ${rows.length?'<div class="list">'+rows.map(x=>item(x.title,x.dueDate?niceDate(x.dueDate):"No due date",badge(x.completed?"COMPLETED":"PENDING")+(x.completed?'':'<button class="btn sm secondary" type="button" data-task="'+e(x.id)+'">Mark done</button>'))).join("")+'</div>':empty("No tasks yet","Keep every planning milestone in one checklist.")}</section>
       <section class="panel"><h2>New task</h2><form id="task"><div class="stack">
       ${field("Task title","title","text",'maxlength="200" placeholder="Confirm photographer"')}
-      ${field("Due date (optional)","dueDate","date")}
+      ${field("Due date (optional)","dueDate","date","",false)}
       </div><div class="form-actions">${button("Add task")}</div></form></section></div>`;
     binder=()=>form("task",async v=>{await api("/weddings/"+id+"/tasks",{method:"POST",body:{title:v.title,dueDate:v.dueDate||null}});toast("Task added.");await navigate();});
   } else if(tab==="budget"){
