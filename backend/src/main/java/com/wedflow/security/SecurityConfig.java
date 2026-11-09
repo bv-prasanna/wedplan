@@ -1,5 +1,6 @@
 package com.wedflow.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +32,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Configuration
@@ -46,9 +48,26 @@ public class SecurityConfig {
     return source;
   }
   @Bean PasswordEncoder passwordEncoder(){return new BCryptPasswordEncoder(12);}
-  @Bean SecurityFilterChain security(HttpSecurity http, BearerFilter bearer) throws Exception {
+  @Bean SecurityFilterChain security(HttpSecurity http, BearerFilter bearer, ObjectMapper mapper) throws Exception {
     return http.csrf(csrf->csrf.disable()).cors(cors->{}).headers(headers->headers.contentTypeOptions(opts->{}).frameOptions(frame->frame.deny()))
       .sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+      .exceptionHandling(ex->ex
+        .authenticationEntryPoint((req,res,err)->{
+          res.setStatus(HttpStatus.UNAUTHORIZED.value());
+          res.setContentType("application/problem+json");
+          mapper.writeValue(res.getWriter(),Map.of(
+            "title","Unauthorized","status",401,
+            "detail","Authentication is required.",
+            "requestId",String.valueOf(req.getAttribute("requestId"))));
+        })
+        .accessDeniedHandler((req,res,err)->{
+          res.setStatus(HttpStatus.FORBIDDEN.value());
+          res.setContentType("application/problem+json");
+          mapper.writeValue(res.getWriter(),Map.of(
+            "title","Forbidden","status",403,
+            "detail","You do not have permission to perform this action.",
+            "requestId",String.valueOf(req.getAttribute("requestId"))));
+        }))
       .authorizeHttpRequests(a->a.requestMatchers("/api/v1/auth/register","/api/v1/auth/login","/api/v1/vendors","/actuator/health","/api/v1/razorpay/webhook").permitAll().anyRequest().authenticated())
       .addFilterBefore(bearer,UsernamePasswordAuthenticationFilter.class).build();
   }
