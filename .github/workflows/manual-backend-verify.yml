@@ -1,4 +1,4 @@
-name: Manual backend verification
+name: Manual full-stack verification
 on:
   workflow_dispatch:
 permissions:
@@ -29,6 +29,14 @@ jobs:
       DATABASE_PASSWORD: wedflow_test
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Web syntax and unit checks
+        run: |
+          node --check ../web/src/core.mjs
+          node --check ../web/src/app.mjs
+          node --test ../web/tests/*.test.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
