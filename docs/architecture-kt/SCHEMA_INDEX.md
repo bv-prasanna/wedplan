@@ -1,6 +1,6 @@
 # WedPlan/WedFlow - SQL and ER Catalog
 
-> All **8** Flyway SQL migration files on current `main` were inspected on 2026-11-09. **Source-derived**, not verified live PostgreSQL physical schema.
+> The repository currently contains **10** Flyway SQL migration files (V1–V10), indexed on 2026-11-10. **Source-derived**, not verified live PostgreSQL physical schema.
 
 ## Migration source links
 - [`V1__initial.sql`](../../backend/src/main/resources/db/migration/V1__initial.sql)
@@ -11,6 +11,8 @@
 - [`V6__constraints.sql`](../../backend/src/main/resources/db/migration/V6__constraints.sql)
 - [`V7__razorpay.sql`](../../backend/src/main/resources/db/migration/V7__razorpay.sql)
 - [`V8__event_geolocation.sql`](../../backend/src/main/resources/db/migration/V8__event_geolocation.sql)
+- [`V9__login_abuse_protection.sql`](../../backend/src/main/resources/db/migration/V9__login_abuse_protection.sql) — hashed login attempt throttling
+- [`V10__audit_http_context.sql`](../../backend/src/main/resources/db/migration/V10__audit_http_context.sql) — request ID and HTTP status audit metadata
 
 ## ER model — newly created tables and explicit references
 ```mermaid
