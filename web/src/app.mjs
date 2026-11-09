@@ -466,9 +466,15 @@ async function administration(){
     paint("Access restricted","This workspace is for administrators only.",empty("Permission required","Please use the appropriate authorized account."));
     return;
   }
-  const rows=await api("/admin/vendors/pending");
-  paint("Administration","Review and approve service providers before they appear in the marketplace.",
-    '<section class="panel"><div class="card-title"><h2>Pending vendor reviews</h2><span class="tag">'+rows.length+' awaiting</span></div>'+
+  const [rows,summary]=await Promise.all([api("/admin/vendors/pending"),api("/admin/summary")]);
+  const metric=(label,value)=>'<div class="metric"><div class="metric-label">'+e(label)+'</div><div class="metric-value">'+e(value)+'</div></div>';
+  const metrics='<div class="grid grid-4" style="margin-bottom:24px">'+
+    metric("Registered users",summary.users)+metric("Weddings",summary.weddings)+
+    metric("Approved vendors",summary.approvedVendors)+metric("Pending approvals",summary.pendingVendors)+
+    metric("Confirmed bookings",summary.confirmedBookings)+metric("Verified payments",money(summary.capturedPaise))+
+    metric("Processed refunds",money(summary.processedRefundPaise))+'</div>';
+  paint("Administration","Operational overview and vendor verification queue.",
+    metrics+'<section class="panel"><div class="card-title"><h2>Pending vendor reviews</h2><span class="tag">'+rows.length+' awaiting</span></div>'+
     (rows.length?'<div class="list">'+rows.map(x=>item(x.displayName,x.category+" · "+x.city+" · "+(x.description||"No description"),
       '<button type="button" class="btn sm" data-vendor-approve="'+e(x.id)+'">Approve</button><button type="button" class="btn sm danger" data-vendor-reject="'+e(x.id)+'">Reject</button>')).join("")+'</div>':empty("Approval queue is clear","There are no vendor profiles awaiting review."))+'</section>');
 }
