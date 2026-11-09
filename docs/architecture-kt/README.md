@@ -1,8 +1,8 @@
 # Wedding planning and vendor marketplace - Architecture, Deployment, ER, Database, Migration & KT Guide
-> **Code snapshot:** 2026-11-09, `main` branch of [bv-prasanna/wedplan](https://github.com/bv-prasanna/wedplan). **Repository-derived reference**; cloud environment and deployed DB must be verified separately.
+> **Code snapshot:** 2026-11-10, `main` branch of [bv-prasanna/wedplan](https://github.com/bv-prasanna/wedplan). **Repository-derived reference**; cloud environment and deployed DB must be verified separately.
 
 ## 1. System context and component architecture
-**Stack observed / documented:** Spring Boot + PostgreSQL / Flyway. Source has no verified web app, no verified mobile app and backend/API sources.
+**Stack observed / documented:** Spring Boot + PostgreSQL / Flyway. Source now includes a responsive, dependency-free **web/** customer/vendor/admin portal in addition to the backend. It is not live-browser/UAT certified; no native mobile app is present.
 
 ```mermaid
 flowchart LR
@@ -82,7 +82,7 @@ erDiagram
 ```
 
 ## 4. Database schema and migration registry
-**DDL/migration sources detected:** 8. **Baseline tables detected:** 5. The full and exact schema is defined by the ordered source SQL and later ALTERs, plus the deployed migration history; this table-name view is intentionally limited to inspected baseline files.
+**DDL/migration sources detected:** 10. **Baseline tables detected:** 5. The full and exact schema is defined by the ordered source SQL and later ALTERs, plus the deployed migration history; this table-name view is intentionally limited to inspected baseline files.
 
 Baseline tables: `app_users`, `weddings`, `ceremonies`, `vendors`, `enquiries`.
 
@@ -95,6 +95,8 @@ Baseline tables: `app_users`, `weddings`, `ceremonies`, `vendors`, `enquiries`.
 - [`backend/src/main/resources/db/migration/V6__constraints.sql`](../../backend/src/main/resources/db/migration/V6__constraints.sql)
 - [`backend/src/main/resources/db/migration/V7__razorpay.sql`](../../backend/src/main/resources/db/migration/V7__razorpay.sql)
 - [`backend/src/main/resources/db/migration/V8__event_geolocation.sql`](../../backend/src/main/resources/db/migration/V8__event_geolocation.sql)
+- [`backend/src/main/resources/db/migration/V9__login_abuse_protection.sql`](../../backend/src/main/resources/db/migration/V9__login_abuse_protection.sql)
+- [`backend/src/main/resources/db/migration/V10__audit_http_context.sql`](../../backend/src/main/resources/db/migration/V10__audit_http_context.sql)
 
 
 For a verified PostgreSQL schema snapshot: `pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL" > schema-only.sql`. For SQLite/D1, inspect `sqlite_master` and `PRAGMA table_info` in the correct environment. Never upload production PII or credentials to docs.
