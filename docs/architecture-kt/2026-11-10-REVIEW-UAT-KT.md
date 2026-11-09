@@ -2,7 +2,7 @@
 **Date:** 2026-11-10. **Source:** bv-prasanna/wedplan main. **Status:** source review, not UAT certification.
 
 ## Findings and UI/UX scope
-The current repository contains a Java/Spring Boot backend and no web/mobile application implementation. Therefore no claim is made that individual pages were visually reviewed. Frontend delivery is a release blocker. Proposed page inventory for implementation and visual UAT: landing/discovery; login/registration/password recovery; customer dashboard; wedding create/detail; ceremonies; guest list/RSVP; tasks; budget; vendor search/profile; enquiry/quotes; booking/calendar; catering; checkout/payment history/refunds; notifications; vendor onboarding/service catalogue/quotes/calendar; admin approvals/settlements/support/reports. For each page check mobile and desktop layouts, loading/empty/error/success, keyboard and screen reader, Kannada/English if specified by BRD, and unauthorized access.
+The repository now contains a Java/Spring Boot backend and a dependency-free web portal. Source/UI flow review is possible; deployed browser, responsive device and end-to-end visual acceptance are not yet verified. There is no native mobile client. Frontend delivery is a release blocker. Proposed page inventory for implementation and visual UAT: landing/discovery; login/registration/password recovery; customer dashboard; wedding create/detail; ceremonies; guest list/RSVP; tasks; budget; vendor search/profile; enquiry/quotes; booking/calendar; catering; checkout/payment history/refunds; notifications; vendor onboarding/service catalogue/quotes/calendar; admin approvals/settlements/support/reports. For each page check mobile and desktop layouts, loading/empty/error/success, keyboard and screen reader, Kannada/English if specified by BRD, and unauthorized access.
 
 ## Verified source architecture
 ```mermaid
@@ -75,7 +75,7 @@ For exact physical columns, constraints and relationships consult [schema index]
 Logs must include correlation ID, operation, duration, status and actor ID where appropriate. Do not log password, bearer tokens, Razorpay secrets, payment details or sensitive identity information. Review retention and access to geolocation/audit history.
 
 ## Prioritized security and functional backlog
-**P0:** no frontend; payment/refund/settlement reconciliation and idempotency not certified; vendor payouts not completed; no live SMS; account recovery/verification and comprehensive RBAC incomplete; no successful Maven/PostgreSQL CI evidence. Confirm all financial data cannot be deleted through cascading wedding removal. Confirm audit service is wired to all important mutations, not just defined.
+**P0:** unverified/new frontend; payment/refund/settlement reconciliation and idempotency not certified; vendor payouts not completed; no live SMS; account recovery/verification and comprehensive RBAC incomplete; no successful Maven/PostgreSQL CI evidence. Confirm all financial data cannot be deleted through cascading wedding removal. Confirm audit service is wired to all important mutations, not just defined.
 **P1:** quote versions and itemization; payment milestones; vendor portfolios/packages; collaborator and planner permissions; seating/dietary guest management; operational dashboards, reports and support cases; durable notification retry/recovery.
 **P2:** accessibility, internationalization, visual consistency and mobile release once frontend exists.
 
@@ -98,3 +98,6 @@ Logs must include correlation ID, operation, duration, status and actor ID where
 6. Flyway history, staging restore, runbook, CI and rollback (20m)
 
 Record each demo with release SHA, environment, test IDs, pass/fail, screenshots/API responses, owner and defects. **Do not sign off** until P0 gaps are closed and test/coverage evidence is available.
+
+## Follow-up implementation update (2026-11-10)
+The initial `web/` customer, vendor and admin workspace has now been committed. API endpoints for vendor-owned profiles, services, enquiries, quotes, bookings and pending admin approvals are available. HTTP error responses now use safe structured 4xx/5xx details and request IDs, with request metadata logging. The audit middleware records mutating endpoints, HTTP status and optional client-reported coordinates; it is best-effort, not guaranteed transactional proof. Flyway now includes V9 login throttling and V10 HTTP audit context. Manual full-stack verification includes Node syntax/tests and Maven/JaCoCo; **no workflow run results or live screenshot evidence have been verified**.
