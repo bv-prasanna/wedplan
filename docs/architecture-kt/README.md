@@ -38,43 +38,47 @@ The ER uses `CREATE TABLE` and declared `REFERENCES` found in **1 selected basel
 ```mermaid
 erDiagram
     APP_USERS {
-        string id PK
-        string email
-        string password_hash
-        string role
-        string created_at
-    }
-    WEDDINGS {
-        string id PK
-        string owner_id
-        string title
-        string city
-        string total_budget_paise
+        UUID id PK
+        VARCHAR email
+        VARCHAR password_hash
+        VARCHAR role
+        TIMESTAMPTZ created_at
     }
     CEREMONIES {
-        string id PK
-        string wedding_id
-        string name
-        string venue
-    }
-    VENDORS {
-        string id PK
-        string display_name
-        string category
-        string city
-        string approved
+        UUID id PK
+        UUID wedding_id FK
+        VARCHAR name
+        DATE event_date
+        VARCHAR venue
     }
     ENQUIRIES {
-        string id PK
-        string wedding_id
-        string vendor_id
-        string message
-        string status
+        UUID id PK
+        UUID wedding_id FK
+        UUID vendor_id FK
+        VARCHAR message
+        VARCHAR status
+        TIMESTAMPTZ created_at
     }
-    APP_USERS ||--o{ WEDDINGS : references
-    WEDDINGS ||--o{ CEREMONIES : references
-    WEDDINGS ||--o{ ENQUIRIES : references
-    VENDORS ||--o{ ENQUIRIES : references
+    VENDORS {
+        UUID id PK
+        VARCHAR display_name
+        VARCHAR category
+        VARCHAR city
+        BOOLEAN approved
+    }
+    WEDDINGS {
+        UUID id PK
+        UUID owner_id FK
+        VARCHAR title
+        VARCHAR city
+        DATE event_date
+        BIGINT total_budget_paise
+        TIMESTAMPTZ created_at
+    }
+    APP_USERS ||--o{ WEDDINGS : owner_id
+    WEDDINGS ||--o{ CEREMONIES : wedding_id
+    WEDDINGS ||--o{ ENQUIRIES : wedding_id
+    VENDORS ||--o{ ENQUIRIES : vendor_id
 ```
 
 ## 4. Database schema and migration registry
