@@ -1,6 +1,7 @@
 package com.wedflow.api;
 
 import com.wedflow.security.SecurityConfig;
+import com.wedflow.security.LoginAttemptService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -23,8 +24,8 @@ import java.util.UUID;
 
 @RestController @RequestMapping("/api/v1/auth")
 public class AuthController {
- private final JdbcTemplate db;private final PasswordEncoder encoder;private final SecureRandom random=new SecureRandom();
- public AuthController(JdbcTemplate db,PasswordEncoder encoder){this.db=db;this.encoder=encoder;}
+ private final JdbcTemplate db;private final PasswordEncoder encoder;private final LoginAttemptService attempts;private final SecureRandom random=new SecureRandom();
+ public AuthController(JdbcTemplate db,PasswordEncoder encoder,LoginAttemptService attempts){this.db=db;this.encoder=encoder;this.attempts=attempts;}
  public record Credentials(@NotBlank @Email String email,@NotBlank @Size(min=12,max=128) String password){}
  public record TokenResponse(String accessToken,String tokenType,long expiresInSeconds){}
  @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED) @Transactional
@@ -34,12 +35,14 @@ public class AuthController {
    catch(DuplicateKeyException e){throw new ResponseStatusException(HttpStatus.CONFLICT,"Account already exists");}
    return Map.of("id",id.toString(),"email",email);
  }
- @PostMapping("/login") @Transactional
+ @PostMapping("/login")
  public TokenResponse login(@Valid @RequestBody Credentials in){
+   attempts.check(in.email());
    var users=db.query("SELECT id,password_hash FROM app_users WHERE email=?", (rs,n)->Map.entry(rs.getObject("id",UUID.class),rs.getString("password_hash")),in.email().trim().toLowerCase(Locale.ROOT));
-   if(users.isEmpty()||!encoder.matches(in.password(),users.get(0).getValue()))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid credentials");
+   if(users.isEmpty()||!encoder.matches(in.password(),users.get(0).getValue())){attempts.failed(in.email());throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid credentials");}
    byte[] bytes=new byte[32];random.nextBytes(bytes);String token=HexFormat.of().formatHex(bytes);
    db.update("INSERT INTO auth_tokens(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)",UUID.randomUUID(),users.get(0).getKey(),SecurityConfig.sha256(token),java.sql.Timestamp.from(Instant.now().plus(12,ChronoUnit.HOURS)));
+   attempts.succeeded(in.email());
    return new TokenResponse(token,"Bearer",43200);
  }
  @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
