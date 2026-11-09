@@ -11,6 +11,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice
 public class ApiErrorHandler {
@@ -36,6 +43,26 @@ public class ApiErrorHandler {
  public ResponseEntity<ProblemDetail> integrity(DataIntegrityViolationException ex,HttpServletRequest request){
   LOG.warn("Database constraint rejected requestId={}",request.getAttribute("requestId"));
   return problem(HttpStatus.CONFLICT,"The operation conflicts with existing records.",request);
+ }
+ @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,MissingServletRequestParameterException.class})
+ public ResponseEntity<ProblemDetail> malformed(Exception ex,HttpServletRequest request){
+  return problem(HttpStatus.BAD_REQUEST,"The request format or parameter value is invalid.",request);
+ }
+ @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+ public ResponseEntity<ProblemDetail> method(HttpRequestMethodNotSupportedException ex,HttpServletRequest request){
+  return problem(HttpStatus.METHOD_NOT_ALLOWED,"This action is not supported for the requested endpoint.",request);
+ }
+ @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+ public ResponseEntity<ProblemDetail> media(HttpMediaTypeNotSupportedException ex,HttpServletRequest request){
+  return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE,"Unsupported content type.",request);
+ }
+ @ExceptionHandler(NoResourceFoundException.class)
+ public ResponseEntity<ProblemDetail> notFound(NoResourceFoundException ex,HttpServletRequest request){
+  return problem(HttpStatus.NOT_FOUND,"The requested endpoint was not found.",request);
+ }
+ @ExceptionHandler(AccessDeniedException.class)
+ public ResponseEntity<ProblemDetail> forbidden(AccessDeniedException ex,HttpServletRequest request){
+  return problem(HttpStatus.FORBIDDEN,"You do not have permission to perform this action.",request);
  }
  @ExceptionHandler(Exception.class)
  public ResponseEntity<ProblemDetail> unexpected(Exception ex,HttpServletRequest request){
