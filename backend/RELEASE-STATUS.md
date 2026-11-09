@@ -25,3 +25,10 @@
 
 ## Cost controls
 No automatic GitHub Actions workflow was introduced. Execute tests locally. Open-source Java/PostgreSQL software has no license cost; hosting, SMS, email and payment processing may incur charges.
+
+## Update — 2026-11-10 (committed source, not release verification)
+The `web/` customer, vendor and admin application has been added, with workflow screens for wedding planning, vendor discovery, booking, payments and notifications. New backend vendor-owned/admin-read endpoints, PII-free admin metrics, safer HTTP 400/401/403/404/405/409/415/429/500 error behavior, request IDs/status/latency telemetry, and a vendor approval quotation guard are in source. Flyway V8 location columns, V9 login throttling and V10 audit request context exist; the HTTP mutation audit interceptor records optional **client-reported** coordinates. Node helper checks and Java unit-test source have been added. The previously manual-only GitHub Actions workflow now includes Node syntax/tests plus Maven/JaCoCo.
+
+**Still blocked:** Java 21 Maven build and PostgreSQL migration/integration tests were not run in this environment; no successful CI run, JaCoCo result, live browser/device screenshots, accessibility report or Razorpay test-mode evidence has been verified. Full email/account verification, password recovery, admin bootstrap, payout settlement/reconciliation, robust notification crash recovery, vendor/guest/planner advanced requirements and full UAT remain incomplete. Do not promote the source as production-ready.
+
+See [screen-by-screen UAT matrix](../../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md) and [architecture runbook](../../docs/architecture-kt/2026-11-10-REVIEW-UAT-KT.md).
