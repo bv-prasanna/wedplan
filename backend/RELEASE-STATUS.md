@@ -31,4 +31,4 @@ The `web/` customer, vendor and admin application has been added, with workflow 
 
 **Still blocked:** Java 21 Maven build and PostgreSQL migration/integration tests were not run in this environment; no successful CI run, JaCoCo result, live browser/device screenshots, accessibility report or Razorpay test-mode evidence has been verified. Full email/account verification, password recovery, admin bootstrap, payout settlement/reconciliation, robust notification crash recovery, vendor/guest/planner advanced requirements and full UAT remain incomplete. Do not promote the source as production-ready.
 
-See [screen-by-screen UAT matrix](../../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md) and [architecture runbook](../../docs/architecture-kt/2026-11-10-REVIEW-UAT-KT.md).
+See [screen-by-screen UAT matrix](../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md) and [architecture runbook](../docs/architecture-kt/2026-11-10-REVIEW-UAT-KT.md).
