@@ -13,6 +13,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -62,7 +64,7 @@ public class ApiErrorHandler {
   LOG.warn("Database constraint rejected requestId={}",request.getAttribute("requestId"));
   return problem(HttpStatus.CONFLICT,"The operation conflicts with existing records.",request);
  }
- @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,MissingServletRequestParameterException.class})
+ @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,MissingServletRequestParameterException.class,MissingRequestHeaderException.class})
  public ResponseEntity<ProblemDetail> malformed(Exception ex,HttpServletRequest request){
   return problem(HttpStatus.BAD_REQUEST,"The request format or parameter value is invalid.",request);
  }
@@ -73,6 +75,10 @@ public class ApiErrorHandler {
  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
  public ResponseEntity<ProblemDetail> media(HttpMediaTypeNotSupportedException ex,HttpServletRequest request){
   return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE,"Unsupported content type.",request);
+ }
+ @ExceptionHandler(MaxUploadSizeExceededException.class)
+ public ResponseEntity<ProblemDetail> tooLarge(MaxUploadSizeExceededException ex,HttpServletRequest request){
+  return problem(HttpStatus.PAYLOAD_TOO_LARGE,"Uploaded content exceeds the permitted size.",request);
  }
  @ExceptionHandler(NoResourceFoundException.class)
  public ResponseEntity<ProblemDetail> notFound(NoResourceFoundException ex,HttpServletRequest request){
