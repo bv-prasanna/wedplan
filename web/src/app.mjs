@@ -360,7 +360,7 @@ async function finance(tab="enquiries"){
     const rows=await api("/weddings/"+id+"/payments");
     content=`<div class="alert" style="margin-bottom:18px">A checkout request does not confirm payment. Only server-verified Razorpay capture changes status to <strong>VERIFIED</strong>. Refunds may remain pending until a verified provider callback arrives.</div>
       <section class="panel"><h2>Payment records</h2>
-      ${rows.length?'<div class="list">'+rows.map(x=>item(money(x.amountPaise),"Booking: "+x.bookingId,badge(x.status)+(x.status==="PENDING"?'<button type="button" data-checkout="'+e(x.id)+'" class="btn sm">Pay securely</button>':"")+(x.status==="VERIFIED"?'<form data-refund="'+e(x.id)+'" style="display:flex;gap:7px;align-items:center"><input type="number" name="amount" aria-label="Refund amount in rupees" min="0.01" step="0.01" placeholder="Refund ₹" required style="max-width:130px">'+button("Request refund","btn sm secondary")+'</form>':""))).join("")+'</div>':empty("No payment records","Create a payment from a confirmed booking to get started.")}</section>`;
+      ${rows.length?'<div class="list">'+rows.map(x=>item(money(x.amountPaise),"Booking: "+x.bookingId,badge(x.status)+(x.status==="PENDING"?'<button type="button" data-checkout="'+e(x.id)+'" class="btn sm">Pay securely</button>':"")+(x.status==="VERIFIED"?'<span class="muted small">Cancellation refunds require administrator approval.</span>':""))).join("")+'</div>':empty("No payment records","Create a payment from a confirmed booking to get started.")}</section>`;
   }
   paint("Bookings & payments","Review enquiries, quotations, bookings and financial status.",nav+content);
   document.querySelectorAll("[data-accept]").forEach(el=>el.addEventListener("submit",async ev=>{
@@ -371,12 +371,6 @@ async function finance(tab="enquiries"){
   document.querySelectorAll("[data-intent]").forEach(el=>el.addEventListener("submit",async ev=>{
     ev.preventDefault();const btn=el.querySelector("button");btn.disabled=true;
     try{await api("/weddings/"+id+"/payments",{method:"POST",body:{bookingId:el.dataset.intent,amountPaise:rupeesToPaise(new FormData(el).get("amount"))}});toast("Payment intent created. Payment is not yet completed.");location.hash="#/finance/payments";await navigate();}
-    catch(err){toast(err.message,true);}finally{btn.disabled=false;}
-  }));
-  document.querySelectorAll("[data-refund]").forEach(el=>el.addEventListener("submit",async ev=>{
-    ev.preventDefault();if(!confirm("Request a refund? The provider processes this asynchronously."))return;
-    const btn=el.querySelector("button");btn.disabled=true;
-    try{await api("/weddings/"+id+"/refunds",{method:"POST",body:{paymentId:el.dataset.refund,amountPaise:rupeesToPaise(new FormData(el).get("amount"))}});toast("Refund requested; processing is pending provider confirmation.");await navigate();}
     catch(err){toast(err.message,true);}finally{btn.disabled=false;}
   }));
 }
@@ -463,20 +457,70 @@ async function notifications(){
 }
 async function administration(){
   if(!["ADMIN","SUPER_ADMIN"].includes(store.me?.role)){
-    paint("Access restricted","This workspace is for administrators only.",empty("Permission required","Please use the appropriate authorized account."));
+    paint("Access restricted","This workspace is for administrators only.",
+      empty("Permission required","Please use the appropriate authorized account."));
     return;
   }
-  const [rows,summary]=await Promise.all([api("/admin/vendors/pending"),api("/admin/summary")]);
+  const [vendors,summary,refundables,refunds]=await Promise.all([
+    api("/admin/vendors/pending"),api("/admin/summary"),
+    api("/admin/refundable-payments"),api("/admin/refund-requests")
+  ]);
   const metric=(label,value)=>'<div class="metric"><div class="metric-label">'+e(label)+'</div><div class="metric-value">'+e(value)+'</div></div>';
   const metrics='<div class="grid grid-4" style="margin-bottom:24px">'+
     metric("Registered users",summary.users)+metric("Weddings",summary.weddings)+
     metric("Approved vendors",summary.approvedVendors)+metric("Pending approvals",summary.pendingVendors)+
     metric("Confirmed bookings",summary.confirmedBookings)+metric("Verified payments",money(summary.capturedPaise))+
     metric("Processed refunds",money(summary.processedRefundPaise))+'</div>';
-  paint("Administration","Operational overview and vendor verification queue.",
-    metrics+'<section class="panel"><div class="card-title"><h2>Pending vendor reviews</h2><span class="tag">'+rows.length+' awaiting</span></div>'+
-    (rows.length?'<div class="list">'+rows.map(x=>item(x.displayName,x.category+" · "+x.city+" · "+(x.description||"No description"),
-      '<button type="button" class="btn sm" data-vendor-approve="'+e(x.id)+'">Approve</button><button type="button" class="btn sm danger" data-vendor-reject="'+e(x.id)+'">Reject</button>')).join("")+'</div>':empty("Approval queue is clear","There are no vendor profiles awaiting review."))+'</section>');
+  const approvals='<section class="panel"><div class="card-title"><h2>Pending vendor reviews</h2><span class="tag">'+vendors.length+' awaiting</span></div>'+
+    (vendors.length?'<div class="list">'+vendors.map(x=>item(x.displayName,
+      x.category+" · "+x.city+" · "+(x.description||"No description"),
+      '<button type="button" class="btn sm" data-vendor-approve="'+e(x.id)+'">Approve</button>'+
+      '<button type="button" class="btn sm danger" data-vendor-reject="'+e(x.id)+'">Reject</button>')).join("")+'</div>':
+      empty("Approval queue is clear","There are no vendor profiles awaiting review."))+'</section>';
+  const finance='<section class="panel"><div class="card-title"><h2>Refund decisions</h2><span class="tag">'+refundables.length+' eligible payments</span></div>'+
+    '<div class="alert" style="margin-bottom:15px">Only cancelled bookings with server-verified payments are eligible here. Select the amount returned, any deduction, and a documented reason. A queued refund is NOT a processed refund.</div>'+
+    (refundables.length?'<div class="list">'+refundables.map(x=>{
+      const balance=x.amountPaise-x.reservedPaise;
+      return '<div class="list-row" style="display:block"><div class="row-title">'+e(x.weddingTitle)+'</div>'+
+        '<div class="row-sub">Payment '+e(x.paymentId)+' · Available '+e(money(balance))+
+        ' · Service '+e(niceDate(x.serviceDate))+'</div>'+
+        '<form data-admin-refund="'+e(x.paymentId)+'" data-wedding="'+e(x.weddingId)+'" data-available="'+e(balance)+'" style="margin-top:14px">'+
+        '<div class="form-grid"><div class="field"><label>Refund amount (₹)<input type="number" min="0.01" step="0.01" name="amount" required></label></div>'+
+        '<div class="field"><label>Deduction / fee (₹)<input type="number" min="0" step="0.01" name="deduction" value="0" required></label></div>'+
+        '<div class="field full"><label>Decision reason<textarea name="reason" maxlength="500" required placeholder="Reason and any applicable cancellation charge"></textarea></label></div></div>'+
+        '<div class="form-actions">'+button("Queue approved refund","btn sm")+'</div></form></div>';
+    }).join("")+'</div>':empty("No eligible cancellation refunds","Only verified payments on cancelled bookings appear here."))+'</section>';
+  const history='<section class="panel"><div class="card-title"><h2>Refund provider status</h2><span class="tag">'+refunds.length+' recent</span></div>'+
+    (refunds.length?'<div class="list">'+refunds.map(x=>item(
+      x.weddingTitle+" · "+money(x.amountPaise),x.reason||"Legacy refund · no reason stored",
+      badge(x.status)+(x.status==="REQUIRES_RECONCILIATION"?
+        '<span class="small muted">Manually verify this refund with the provider before any follow-up.</span>':""))).join("")+'</div>':
+      empty("No refunds recorded","Approved refund requests and provider progress will appear here."))+'</section>';
+  paint("Administration","Arena-style operational overview, verification and payment controls.",
+    metrics+'<div class="stack">'+approvals+finance+history+'</div>');
+  document.querySelectorAll("[data-admin-refund]").forEach(el=>el.addEventListener("submit",async ev=>{
+    ev.preventDefault();
+    const btn=el.querySelector('button[type="submit"]');
+    if(btn.disabled)return;btn.disabled=true;
+    try{
+      const values=Object.fromEntries(new FormData(el));
+      const amountPaise=rupeesToPaise(values.amount);
+      const deductionPaise=rupeesToPaise(values.deduction);
+      if(amountPaise+deductionPaise>Number(el.dataset.available))
+        throw new Error("Refund and deduction exceed the verified remaining balance.");
+      if(!confirm("Approve and queue this refund? An external provider confirmation is still required."))return;
+      const storageKey="wedflow_refund_request_"+el.dataset.adminRefund;
+      let requestKey=sessionStorage.getItem(storageKey);
+      if(!requestKey){requestKey=crypto.randomUUID().replaceAll("-","");sessionStorage.setItem(storageKey,requestKey);}
+      const result=await api("/weddings/"+encodeURIComponent(el.dataset.wedding)+"/refunds",{
+        method:"POST",body:{paymentId:el.dataset.adminRefund,amountPaise,deductionPaise,
+          reason:values.reason,requestKey}
+      });
+      sessionStorage.removeItem(storageKey);
+      toast("Refund "+result.status.toLowerCase()+". Do not treat this as a completed provider refund.");
+      await navigate();
+    }catch(err){toast(err.message,true);}finally{if(btn.isConnected)btn.disabled=false;}
+  }));
 }
 async function navigate(){
   const {route,tab}=current();
