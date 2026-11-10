@@ -1,0 +1,13 @@
+# Locally generated secrets, application artifacts and physical DB exports
+.env
+.env.*
+!.env.example
+*.pem
+*.jks
+*.keystore
+target/
+node_modules/
+coverage/
+schema-export/
+*.log
+.DS_Store
