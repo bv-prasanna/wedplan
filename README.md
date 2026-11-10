@@ -28,15 +28,23 @@ Prerequisites: Java 21, Maven 3.9+, PostgreSQL and Python 3 or any static web se
 - Login/registration, dashboard and wedding selection.
 - Ceremonies, guests and RSVP, tasks, budget allocations, catering menus/items.
 - Approved vendor discovery, enquiries, quotation acceptance and booking cancellation.
-- Payment intents, Razorpay checkout initiation and verified/pending/failed status (server remains authority); refund requests remain pending until provider confirmation.
+- Payment intents, Razorpay checkout initiation and verified/pending/failed status (server remains authority); refunds now require administrator approval after cancellation, with a queued provider workflow and reconciliation state.
 - Vendor business setup, services, enquiries, quotations and bookings.
-- Admin approval/rejection and PII-free operational KPIs.
+- Admin approval/rejection, PII-free operational KPIs, and cancellation refund decisions with deduction and status queues.
 - Notification inbox, safe API error messages with correlation ID, and optional short-lived geolocation capture for mutation audit.
 
 ## Production configuration and limits
 
 Use HTTPS backend and frontend URLs; restrict CORS; review `web/_headers` CSP against actual Razorpay checkout behavior before go-live. `web/config.js` contains only public API routing configuration, never secrets. Frontend auth token is stored in **sessionStorage**, not persistent storage; backend validates ownership/roles for every operation.
 
-The current product does **not** yet provide complete password recovery/email verification, full planner collaboration, vendor payout settlements, browser/mobile certification or completed provider reconciliation. Consult the [release status](backend/RELEASE-STATUS.md), [operations runbook](docs/architecture-kt/2026-11-10-REVIEW-UAT-KT.md), [schema catalogue](docs/architecture-kt/SCHEMA_INDEX.md), and [manual verification workflow](.github/workflows/manual-backend-verify.yml).
+The current product does **not** yet provide complete password recovery/email verification, full planner collaboration, vendor payout settlements, browser/device certification, or automated provider reconciliation. A controlled one-time SUPER_ADMIN bootstrap is available via runtime-only secrets. Consult the [release status](backend/RELEASE-STATUS.md), [operations runbook](docs/architecture-kt/DEPLOYMENT_MAINTENANCE_KT.md), [schema catalogue](docs/architecture-kt/SCHEMA_INDEX.md), and [manual verification workflow](.github/workflows/manual-backend-verify.yml).
 
 The GitHub Actions workflow runs **only when manually dispatched**; it does not consume actions minutes on ordinary pushes.
+
+## Latest 10 November 2026 technical package
+
+**12 Flyway versions**: V11 adds admin-only queued refunds, deduction amounts, idempotency and reconciliation metadata; V12 adds notification worker lease recovery and backoff. The customer page no longer grants self-approved refunds. Refined vendor search and safe machine-readable HTTP status responses. Controlled one-time admin bootstrap uses `WEDFLOW_BOOTSTRAP_ADMIN_EMAIL` and `WEDFLOW_BOOTSTRAP_ADMIN_PASSWORD` supplied securely; remove them after the first approved provisioning.
+
+[Architecture & booking/refund sequence](docs/architecture-kt/SYSTEM_ARCHITECTURE.md) · [Deployment diagrams](docs/architecture-kt/DEPLOYMENT_TOPOLOGIES.md) · [Complete logical ER](docs/architecture-kt/ER_FULL_DOMAIN.md) · [Schema/migrations](docs/architecture-kt/SCHEMA_INDEX.md) · [Safe Flyway script](docs/architecture-kt/migrate-safe.sh) · [Maintenance and KT demo](docs/architecture-kt/DEPLOYMENT_MAINTENANCE_KT.md).
+
+**Current release gate remains BLOCKED:** see [deployment blockers](backend/DEPLOYMENT-BLOCKERS.md). No new database migration, production push or financial provider test was executed as part of these GitHub source commits.
