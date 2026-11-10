@@ -42,6 +42,8 @@ public class SecurityConfig {
     if(!origins.isBlank()) config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(v->!v.isEmpty()).toList());
     config.setAllowedMethods(List.of("GET","POST","PATCH","PUT","DELETE","OPTIONS"));
     config.setAllowedHeaders(List.of("Authorization","Content-Type","X-Geo-Latitude","X-Geo-Longitude","X-Geo-Accuracy-M"));
+    // Permit the browser to display a safe support reference from API errors.
+    config.setExposedHeaders(List.of("X-Request-ID"));
     config.setMaxAge(3600L);
     UrlBasedCorsConfigurationSource source=new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/api/**",config);
