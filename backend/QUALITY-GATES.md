@@ -1,23 +1,30 @@
-# Backend quality gates
+# WedFlow — engineering quality gates (10 November 2026)
 
-## Commands (local, zero CI minutes)
+**No production/UAT certification yet.** This is a list of required checks, not a report of executed passing tests.
+
+## Mandatory commands
+
 ```bash
-cd backend
-mvn -B clean verify
+cd web && npm run verify && cd ..
+mvn -B -f backend/pom.xml clean verify
+bash docs/architecture-kt/migrate-safe.sh plan
 ```
 
-The Maven build, PostgreSQL migrations, integration tests, and coverage **must be executed and reviewed** before any production deployment. The code is not certified production-ready.
+For integration run, use dedicated disposable PostgreSQL, run approved Flyway V1–V12, exercise the API with customer, vendor, admin and wrong-role identities. Preserve Surefire reports, JaCoCo XML/HTML, SQL migration history and the immutable Git SHA.
 
-## Release blockers
-- Configure real payment provider integration with verified, authenticated callbacks, idempotency, refunds, and settlement ledger. The payment API currently records **PENDING intents only**; it does not charge money.
-- Add availability locking and collision handling at quote acceptance; the current unique index only protects non-null service_date, which is not populated during acceptance.
-- Add password reset, email verification, account lockout/rate limiting, token expiry cleanup, secure CORS policy, and audit coverage.
-- Build integration tests against PostgreSQL (Flyway migrations and transaction isolation), API authorization and negative scenarios.
-- Add vendor staff/planner role permissions, messaging delivery, guest invitations, seating, refunds, cancellation policies, and payouts.
-- Resolve budget spend reconciliation and prevent duplicate/overlapping payments.
-- Review privacy, retention, data export/deletion, observability, backups, and deployment secrets.
-- Validate migration roll-forward/rollback and inspect OWASP dependencies.
-- Do not enable automatic CI on each commit. Use manual local checks until a manual-only workflow is agreed.
+## High-risk negative test gates
 
-## Existing tests
-JUnit tests cover budget math, SHA-256 utility and request validation. This is not full API or integration coverage.
+- **Account:** wrong password 401, rate-limited 429, expired token 401, wrong-role 403, non-owned wedding/vendor 404; no raw passwords/tokens in client error/log.
+- **Super-admin:** bootstrap works once with strong controlled secrets; never overwrites an existing account; zero public admin self-registration.
+- **Vendor:** pending profile is hidden from public search and cannot quote; approved provider can quote; quote accept must reject a conflicting vendor/date (409).
+- **Money:** requested amount cannot exceed unpaid quote; signed Razorpay webhook replay is idempotent; wrong amount/currency or invalid signature rejected.
+- **Refund:** customer 403, active booking 409, negative/oversized refund rejected, duplicated key returns the same request, different payload with same key rejected; provider timeout transitions to reconciliation and never silently resubmits.
+- **Messaging:** stale SENDING recovered; max attempts respected; provider unavailable cannot fabricate SENT; email at-least-once caveat documented.
+- **Errors:** safe 400,401,403,404,405,409,413,415,429,500 with request reference and Cache-Control no-store.
+- **Location:** paired lat/lon and accuracy validated; user denial/missing coordinates explicitly unavailable; not treated as trusted presence.
+- **Privacy:** guest phone, credentials, Razorpay secrets and precise coordinates not present in raw logs, URLs, or unauthorized accounts.
+- **Web:** role-appropriate navigation, all routes, empty/loading/error/success, responsive and keyboard/screen-reader accessible, checkout return not counted as verified payment.
+
+## Remaining release blockers
+
+Full customer identity recovery/verification, advanced planner features, vendor settlement and reconciliation, reliable SMS, real provider incident drills, browser accessibility review, backups/restore, tests with PostgreSQL and actual JaCoCo reports. Run [manual workflow](../.github/workflows/manual-backend-verify.yml) if permitted. See [deployment checklist](DEPLOYMENT-BLOCKERS.md), [page UAT](../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md), [KT runbook](../docs/architecture-kt/DEPLOYMENT_MAINTENANCE_KT.md).
