@@ -28,4 +28,12 @@ class ApiErrorStatusTest {
   assertEquals(HttpStatus.FORBIDDEN,result.getStatusCode());
   assertFalse(result.getBody().getDetail().contains("sensitive"));
  }
+ @Test void validationAndUnexpectedClientStatusesDoNotLeakInternalDetails(){
+  var result=handler.tooLarge(
+    new org.springframework.web.multipart.MaxUploadSizeExceededException(512),request());
+  assertEquals(413,result.getStatusCode().value());
+  assertEquals("PAYLOAD_TOO_LARGE",result.getBody().getProperties().get("code"));
+  assertEquals("test-request-id",result.getBody().getProperties().get("requestId"));
+  assertEquals("no-store",result.getHeaders().getFirst("Cache-Control"));
+ }
 }
