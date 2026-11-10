@@ -19,7 +19,7 @@
 | Quotes `#/finance/quotes` | Review offered quotes and accept with service date | Past date 400; concurrent vendor booking 409; quote no longer offered | Partial |
 | Bookings `#/finance/bookings` | Show confirmed/cancelled bookings and create payment intent | Repeat cancel 409, overpayment 409, show refund state separately | Partial; amendments pending |
 | Payment records `#/finance/payments` | Show PENDING/VERIFIED/FAILED; invoke Razorpay checkout | Checkout close not success; delayed/replayed webhook, mismatched payment, offline | Partial; provider UAT needed |
-| Refund request `#/finance/payments` | Request amount on verified payment; show PENDING | Over-refund 409; no instant “processed”; provider reconciliation pending | Partial |
+| Cancellation and refund approval `#/admin` | Admin sees cancelled, verified bookings; inputs refund, fee deduction and reason | Customer 403; uncancelled booking 409; idempotency replay; QUEUED/PROCESSING/PENDING/PROCESSED/reconciliation messages | Implemented source; provider UAT pending |
 | Notifications `#/notifications` | Display inbox and mark read | Empty inbox, 404 for foreign notification, unread state, mail failure | Partial |
 | Vendor registration `#/vendor` | Create profile awaiting admin approval | Invalid details 400, no public listing while pending | Implemented; unverified |
 | Vendor services `#/vendor/services` | Add and see owned services | Other vendor 404, bad price 400, inactive handling | Partial |
@@ -64,3 +64,13 @@
 | UAT sign-off | Defect severity list, retest outcome, approver and date |
 
 **Release certification: BLOCKED** until this evidence exists and P0 gaps are resolved. The static web source is newly implemented, not a proven production UI.
+
+## New regression and UI verification requirements (V11–V12)
+
+- Admin login/bootstrap: no public ADMIN registration, controlled SUPER_ADMIN seeded only when both deployment secrets are present, no existing admin overwritten. Verify full browser login and cross-role unauthorized paths.
+- Admin refund form: a verified payment on a cancelled booking appears, amount + deduction cannot exceed available balance; a reason is mandatory. A customer must receive 403 from the refund endpoint even if they craft a raw API request. Test duplicate request key with same payload and with conflicting amount.
+- Worker/provider: verify `QUEUED` → `PROCESSING` → `PENDING` → signed `PROCESSED` or `FAILED`. On uncertain timeout or process crash, alert on `REQUIRES_RECONCILIATION`; never replay provider refunds without external evidence. Test signed webhook before provider API response returns.
+- Email retry: fault-inject a crash while `SENDING`; stale row should become eligible again, with increasing retry delay and a max attempt count. Warn about possible duplicate email if the provider had accepted an earlier send.
+- Vendor discovery: search with no filters, case-insensitive partial city/category, long invalid input and an unapproved vendor. Results must never leak private vendor profiles.
+- Cross-browser screen review: validate 360/390/768/1440 pixel widths; admin queue forms, refund status badges, keyboard label/focus and confirmation dialogs. Record screenshot links, backend request IDs and test fixtures.
+- Manual check: `npm run verify` for web and `mvn -B clean verify` with an actual PostgreSQL test fixture and JaCoCo report. No workflow-run evidence was yet verified for current head.
