@@ -1,6 +1,6 @@
 # WedPlan/WedFlow - SQL and ER Catalog
 
-> The repository currently contains **10** Flyway SQL migration files (V1–V10), indexed on 2026-11-10. **Source-derived**, not verified live PostgreSQL physical schema.
+> The repository currently contains **12** Flyway SQL migration files (V1–V12), indexed on 2026-11-10. **Source-derived**, not verified live PostgreSQL physical schema.
 
 ## Migration source links
 - [`V1__initial.sql`](../../backend/src/main/resources/db/migration/V1__initial.sql)
@@ -13,6 +13,8 @@
 - [`V8__event_geolocation.sql`](../../backend/src/main/resources/db/migration/V8__event_geolocation.sql)
 - [`V9__login_abuse_protection.sql`](../../backend/src/main/resources/db/migration/V9__login_abuse_protection.sql) — hashed login attempt throttling
 - [`V10__audit_http_context.sql`](../../backend/src/main/resources/db/migration/V10__audit_http_context.sql) — request ID and HTTP status audit metadata
+- [`V11__refund_authorization_and_queue.sql`](../../backend/src/main/resources/db/migration/V11__refund_authorization_and_queue.sql) — admin decision metadata, request key, queued dispatch and provider reconciliation
+- [`V12__notification_delivery_recovery.sql`](../../backend/src/main/resources/db/migration/V12__notification_delivery_recovery.sql) — delivery lease, delayed retry and diagnostic category
 
 ## ER model — newly created tables and explicit references
 ```mermaid
@@ -519,3 +521,13 @@ Introduced by [`V7__razorpay.sql`](../../backend/src/main/resources/db/migration
 - Before applying migrations: exact DB instance, Flyway history, checksum, backup/restore, staging tests, approved version/release and post-migrate smoke.
 - Reconcile with `pg_dump --schema-only` for final FK, indexes, views, triggers and all ALTER/DROP changes. This parser is conservative and not equivalent to live introspection.
 - Handover: [architecture/deployment/UAT and maintenance](README.md) · [guarded migration operator script](migrate-safe.sh).
+
+## V11–V12 schema additions (after the baseline ER tables)
+
+| Table | Added columns / index | Purpose |
+|---|---|---|
+| `payment_refunds` | `requested_by UUID` FK to app_users; `request_key VARCHAR(80)`; `reason VARCHAR(500)`; `deduction_paise BIGINT`; `dispatched_at`; `reconciled_at` | Administrator-approved refunds, fees and provider reconciliation |
+| `payment_refunds` | unique partial index `(payment_id,request_key)` where key is non-null; index `(status,created_at)` | Deduplicate admin retries and locate pending decisions |
+| `notification_outbox` | `claimed_at`; `next_attempt_at`; `last_error_type`; index `(status,next_attempt_at,created_at)` | Recover stale sends and rate-limit retry attempts |
+
+**Full logical ER:** [ER_FULL_DOMAIN.md](ER_FULL_DOMAIN.md). **Physical model:** export from the approved PostgreSQL instance with [migrate-safe.sh](migrate-safe.sh) `export-schema` mode; this Markdown catalogue does not represent the live applied schema. No automatic database changes were performed by editing these documents.
