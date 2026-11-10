@@ -55,8 +55,9 @@ public class SecurityConfig {
         .authenticationEntryPoint((req,res,err)->{
           res.setStatus(HttpStatus.UNAUTHORIZED.value());
           res.setContentType("application/problem+json");
+          res.setHeader("Cache-Control","no-store");
           mapper.writeValue(res.getWriter(),Map.of(
-            "title","Unauthorized","status",401,
+            "title","Unauthorized","status",401,"code","UNAUTHORIZED",
             "detail","Authentication is required.",
             "requestId",String.valueOf(req.getAttribute("requestId"))));
         })
@@ -64,7 +65,7 @@ public class SecurityConfig {
           res.setStatus(HttpStatus.FORBIDDEN.value());
           res.setContentType("application/problem+json");
           mapper.writeValue(res.getWriter(),Map.of(
-            "title","Forbidden","status",403,
+            "title","Forbidden","status",403,"code","FORBIDDEN",
             "detail","You do not have permission to perform this action.",
             "requestId",String.valueOf(req.getAttribute("requestId"))));
         }))
