@@ -25,14 +25,32 @@ public class ApiErrorHandler {
  private ResponseEntity<ProblemDetail> problem(HttpStatus status,String detail,HttpServletRequest request){
   ProblemDetail body=ProblemDetail.forStatusAndDetail(status,detail);
   body.setProperty("requestId",request.getAttribute("requestId"));
-  return ResponseEntity.status(status).body(body);
+  String code=switch(status.value()){
+   case 400 -> "INVALID_REQUEST";
+   case 401 -> "UNAUTHORIZED";
+   case 403 -> "FORBIDDEN";
+   case 404 -> "NOT_FOUND";
+   case 405 -> "METHOD_NOT_ALLOWED";
+   case 409 -> "CONFLICT";
+   case 413 -> "PAYLOAD_TOO_LARGE";
+   case 415 -> "UNSUPPORTED_MEDIA_TYPE";
+   case 422 -> "VALIDATION_FAILED";
+   case 429 -> "RATE_LIMITED";
+   case 502 -> "PROVIDER_FAILURE";
+   case 503 -> "SERVICE_UNAVAILABLE";
+   default -> status.is5xxServerError()?"SERVER_ERROR":"REQUEST_ERROR";
+  };
+  body.setProperty("code",code);
+  return ResponseEntity.status(status).header("Cache-Control","no-store").body(body);
  }
  @ExceptionHandler(ResponseStatusException.class)
  public ResponseEntity<ProblemDetail> status(ResponseStatusException ex,HttpServletRequest request){
   HttpStatus status=HttpStatus.resolve(ex.getStatusCode().value());
   if(status==null)status=HttpStatus.INTERNAL_SERVER_ERROR;
-  String detail=status.is5xxServerError()?"An unexpected error occurred. Please contact support with the request ID.":ex.getReason();
-  if(detail==null||detail.isBlank())detail=status.getReasonPhrase();
+  String detail=status.is5xxServerError()?"The service could not complete the request. Please use the support reference.":ex.getReason();
+  if(detail==null||detail.isBlank()||detail.length()>180||
+     detail.matches("(?is).*(exception|stacktrace|password|secret|token|jdbc|sql|<|>).*"))
+     detail=status.is5xxServerError()?"The service could not complete the request. Please use the support reference.":status.getReasonPhrase();
   return problem(status,detail,request);
  }
  @ExceptionHandler(MethodArgumentNotValidException.class)
