@@ -1,160 +1,47 @@
-# Wedding planning and vendor marketplace - Architecture, Deployment, ER, Database, Migration & KT Guide
-> **Code snapshot:** 2026-11-10, `main` branch of [bv-prasanna/wedplan](https://github.com/bv-prasanna/wedplan). **Repository-derived reference**; cloud environment and deployed DB must be verified separately.
+# WedFlow — architecture, database, deployment, maintenance and KT package
 
-## 1. System context and component architecture
-**Stack observed / documented:** Spring Boot + PostgreSQL / Flyway. Source now includes a responsive, dependency-free **web/** customer/vendor/admin portal in addition to the backend. It is not live-browser/UAT certified; no native mobile app is present.
+**Repository:** [bv-prasanna/wedplan](https://github.com/bv-prasanna/wedplan) · **Updated:** 10 November 2026. Documents are derived from committed application and migration sources. They **do not confirm** a live website, successful build, PostgreSQL migration, payment sandbox result or signed UAT.
 
-```mermaid
-flowchart LR
-    Operator[Customers / Staff] --> UI[Web or module consumer]
+## Main technical deliverables
 
-    UI --> Service[Application API / Domain]
+| Deliverable | File | What it covers |
+|---|---|---|
+| System architecture | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Components, roles, trust boundaries and booking/payment/refund sequence |
+| Deployment diagrams | [DEPLOYMENT_TOPOLOGIES.md](DEPLOYMENT_TOPOLOGIES.md) | Proposed static web + Java backend + PostgreSQL, DEV/UAT/PROD and recovery |
+| Complete logical ER | [ER_FULL_DOMAIN.md](ER_FULL_DOMAIN.md) | Identity, wedding plans, vendor marketplace, catering, finance, outbox, audit and geolocation |
+| Full migration catalogue | [SCHEMA_INDEX.md](SCHEMA_INDEX.md) | Versioned SQL **V1–V12**, table dictionary and sources |
+| Operator Flyway script | [migrate-safe.sh](migrate-safe.sh) | Read-only plan, info, validate, schema export, approved migrate; never arbitrary shell commands |
+| Deployment/maintenance/KT | [DEPLOYMENT_MAINTENANCE_KT.md](DEPLOYMENT_MAINTENANCE_KT.md) | Configuration, backups, errors, reconciliation, on-call and demo scenarios |
+| Page-by-page UAT | [../SCREEN-BY-SCREEN-UAT-2026-11-10.md](../SCREEN-BY-SCREEN-UAT-2026-11-10.md) | Customer/vendor/admin routes, quality and negative tests |
+| Security test matrix | [SECURITY-TEST-MATRIX.md](SECURITY-TEST-MATRIX.md) | Authentication, data isolation, financial and audit checks |
+| Source reverse engineering | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md) | Code inventory, modules, known gaps and evidence status |
+| Release readiness | [../../backend/DEPLOYMENT-BLOCKERS.md](../../backend/DEPLOYMENT-BLOCKERS.md) | Mandatory not-yet-verified release gates |
 
-    Service --> Security[Auth / policy / validation]
-    Security --> DB[(Persisted data store - verify env)]
+## Actual application
 
-    Service -.-> Provider[External adapters / payment / mail]
-    QA[Tests / CI] -. checks .-> Service
-```
-**Cross-cutting contracts:** server-validated inputs; least-privilege RBAC; concurrency/idempotency; customer vs admin isolation; audit IDs; non-secret config; appropriate geo evidence and billing snapshots where applicable.
+`backend/`: Java 21, Spring Boot, Spring Security bearer-token authentication, JDBC, PostgreSQL/Flyway, Razorpay REST + signed webhooks, Brevo mail, scheduling workers and API audit.
 
-## 2. Deployment diagram (logical reference, not production verification)
-```mermaid
-flowchart TB
-    Git[GitHub main / tagged release] --> QA[CI / build checks]
-    QA -. approved artifact .-> Front[Frontend / CDN / HTTPS]
-    Front --> Back[Backend / APIs / runtime]
+`web/`: responsive static HTML/CSS/JavaScript customer, vendor and administrator application, **not a compiled React project**. No native Android/iOS app is present in this repository.
 
-    Back --> DB[(Database instance)]
+**V11** adds admin-only queued partial refunds and idempotency metadata; **V12** adds notification retry lease/recovery columns. Neither is confirmed installed on a production DB.
 
-    Vault[Managed secrets / environment] -. injected .-> Back
-    Monitor[Logs / metrics / alerts] -. monitors .-> Back
-```
-**Complete for each environment:** cloud project/region, DNS and custom domain, static/web deployment, API container/function, environment names, database identity, secret manager, backup owner, health check, rollback release, CI status and contact matrix. Diagram does **not** establish a running deployment.
-
-## 3. ER diagram - representative source-verified baseline
-The ER uses `CREATE TABLE` and declared `REFERENCES` found in **1 selected baseline file(s)**, not every subsequent migration. It is not a complete physical ER; export the current database catalog for authoritative tables, columns and foreign keys.
-
-```mermaid
-erDiagram
-    APP_USERS {
-        UUID id PK
-        VARCHAR email
-        VARCHAR password_hash
-        VARCHAR role
-        TIMESTAMPTZ created_at
-    }
-    CEREMONIES {
-        UUID id PK
-        UUID wedding_id FK
-        VARCHAR name
-        DATE event_date
-        VARCHAR venue
-    }
-    ENQUIRIES {
-        UUID id PK
-        UUID wedding_id FK
-        UUID vendor_id FK
-        VARCHAR message
-        VARCHAR status
-        TIMESTAMPTZ created_at
-    }
-    VENDORS {
-        UUID id PK
-        VARCHAR display_name
-        VARCHAR category
-        VARCHAR city
-        BOOLEAN approved
-    }
-    WEDDINGS {
-        UUID id PK
-        UUID owner_id FK
-        VARCHAR title
-        VARCHAR city
-        DATE event_date
-        BIGINT total_budget_paise
-        TIMESTAMPTZ created_at
-    }
-    APP_USERS ||--o{ WEDDINGS : owner_id
-    WEDDINGS ||--o{ CEREMONIES : wedding_id
-    WEDDINGS ||--o{ ENQUIRIES : wedding_id
-    VENDORS ||--o{ ENQUIRIES : vendor_id
-```
-
-## 4. Database schema and migration registry
-**DDL/migration sources detected:** 10. **Baseline tables detected:** 5. The full and exact schema is defined by the ordered source SQL and later ALTERs, plus the deployed migration history; this table-name view is intentionally limited to inspected baseline files.
-
-Baseline tables: `app_users`, `weddings`, `ceremonies`, `vendors`, `enquiries`.
-
-**Versioned SQL / schema paths:**
-- [`backend/src/main/resources/db/migration/V1__initial.sql`](../../backend/src/main/resources/db/migration/V1__initial.sql)
-- [`backend/src/main/resources/db/migration/V2__auth_tokens.sql`](../../backend/src/main/resources/db/migration/V2__auth_tokens.sql)
-- [`backend/src/main/resources/db/migration/V3__planning.sql`](../../backend/src/main/resources/db/migration/V3__planning.sql)
-- [`backend/src/main/resources/db/migration/V4__commerce.sql`](../../backend/src/main/resources/db/migration/V4__commerce.sql)
-- [`backend/src/main/resources/db/migration/V5__operations.sql`](../../backend/src/main/resources/db/migration/V5__operations.sql)
-- [`backend/src/main/resources/db/migration/V6__constraints.sql`](../../backend/src/main/resources/db/migration/V6__constraints.sql)
-- [`backend/src/main/resources/db/migration/V7__razorpay.sql`](../../backend/src/main/resources/db/migration/V7__razorpay.sql)
-- [`backend/src/main/resources/db/migration/V8__event_geolocation.sql`](../../backend/src/main/resources/db/migration/V8__event_geolocation.sql)
-- [`backend/src/main/resources/db/migration/V9__login_abuse_protection.sql`](../../backend/src/main/resources/db/migration/V9__login_abuse_protection.sql)
-- [`backend/src/main/resources/db/migration/V10__audit_http_context.sql`](../../backend/src/main/resources/db/migration/V10__audit_http_context.sql)
-
-
-For a verified PostgreSQL schema snapshot: `pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL" > schema-only.sql`. For SQLite/D1, inspect `sqlite_master` and `PRAGMA table_info` in the correct environment. Never upload production PII or credentials to docs.
-
-## 5. Safe migration script and procedures
-**Repository-native migration:** Maven/Spring Boot Flyway startup, after reviewing schema history. Copy/adapt this guarded operator wrapper into the deployment runbook; it performs **no migration by default**.
+## Safe commands
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-plan}" != "apply" ]]; then
-  echo 'PLAN ONLY: verify target branch/SHA, migration history, pending DDL and permissions'
-  echo 'Back up, restore-test, dry-run in staging and record release/backup references.'
-  exit 0
-fi
-[[ "${CONFIRM_DB_MIGRATION:-}" == "BACKUP_VERIFIED" ]] || exit 3
-: "${BACKUP_REFERENCE:?Verified backup/snapshot reference required}"
-: "${MIGRATION_APPLY_CMD:?Provide the reviewed repository-native migration command}"
-bash -lc "$MIGRATION_APPLY_CMD"
-echo 'Verify migration tracking table, API health, smoke tests, reconciliation and audit.'
+cd web && npm run verify && cd ..
+mvn -B -f backend/pom.xml clean verify
+bash docs/architecture-kt/migrate-safe.sh plan
+# The next commands require separately approved Flyway/database credentials:
+bash docs/architecture-kt/migrate-safe.sh info
+bash docs/architecture-kt/migrate-safe.sh validate
+bash docs/architecture-kt/migrate-safe.sh export-schema
+# migrate requires approval, tested backup, RELEASE_SHA and clean versioned SQL
 ```
-**Process:** (1) compare applied versions/checksums; (2) review forward/backward compatibility; (3) backup + actual restoration rehearsal; (4) staging migration/test; (5) review/approve; (6) production apply once; (7) verify health, business smoke and data; (8) record release; (9) recover using tested restore or forward-fix, never blindly undo destructive SQL. Production seeding is prohibited by default.
 
-## 6. Build, release and deployment KT
-- Check out the exact release SHA, supported runtime from `package.json` / `pom.xml` and documented local dependencies.
-- Run repository tests/build/coverage as configured, inspect CI workflow failures, artifacts, lint/typecheck and vulnerability scans.
-- Configure HTTPS, tenant/role/OTP modes, CORS and sessions; keep third-party secrets and payment credentials out of GitHub.
-- Validate database connectivity, migration record, app health, cron/background jobs, callback signature verification, logs and alert routes.
-- For web/mobile releases verify required version controls, app signing, staging-only toggles and rollback compatibility when present.
+CI is [manual GitHub Actions](../../.github/workflows/manual-backend-verify.yml). **No workflow run has yet been confirmed** for this repository. Static source and committed tests are not equivalent to measured build/coverage evidence.
 
-## 7. Support, maintenance and incident runbook
-**Daily:** health/error rates, auth errors, queue/jobs, webhook exceptions, failed payment/invoice notifications and CI deploy status. **Weekly:** DB backup checks, restore sample, retention, storage growth, payment/reconciliation where relevant, access review. **Monthly:** dependency patching, cert renewals, DR drill, audit review and architecture drift.  
-**Incident:** establish scope/last-good SHA; protect logs; disable unsafe writes; compare current vs expected config; use tested rollback/restore; verify with smoke tests; record RCA and corrective test cases.
+## Release decision
 
-## 8. KT and customer UAT demo script
-**Show:** Plan wedding -> vendor quote -> order/fulfilment -> Razorpay sandbox.
-| Minutes | What to demonstrate |
-|---|---|
-| 0-10 | Product scope, stakeholders, roles, current maturity |
-| 10-25 | Main happy path + real error/success messages |
-| 25-40 | Architecture, data flows, DB, RBAC and integrations |
-| 40-50 | Local build, CI/deploy, migration and rollback |
-| 50-60 | Backups, monitoring, admin operations, UAT gaps and contacts |
+**UAT/production: BLOCKED.** In particular, production payment/refund reconciliation, real PostgreSQL integration tests, security/role testing, complete planner workflows, account recovery/email verification, SMS integration, browser accessibility/visual UAT, backup restoration and actual hosting settings remain unverified or incomplete.
 
-**Negative tests:** bad credentials, expired session, forbidden role, bad input, duplicate submission, concurrent operation/stock conflict, offline/timeouts, provider failures, duplicate webhook if used, failed refund, DB loss, location missing (where relevant), invalid migration and tenant leak. Demonstrate only sandbox transactions unless deployment approval is recorded.
-
-## 9. Handover checklist and known evidence gaps
-- [ ] Production/staging service URLs, domains, hosting region, owner and runtime version documented
-- [ ] Secrets access handed over via vault (NO values committed)
-- [ ] Build and CI evidence, test report/coverage and open defects acknowledged
-- [ ] Current database schema-only export and ER reconciled to deployed SHA
-- [ ] Migration history, checksum changes and backup/restore evidence signed
-- [ ] Health, logs, monitoring thresholds and escalation contact operational
-- [ ] Application walkthrough, operational SOP and security/negative UAT approved
-- [ ] Release steps, rollback/forward-fix plan and next maintenance window owned
-
-**Other source documentation:**
-- No additional deployment/architecture guide identified by path filter.
-- CI: [`.github/workflows/manual-backend-verify.yml`](../../.github/workflows/manual-backend-verify.yml)
-
-*This guide is a source-derived starting point for KT. Do not claim that source presence means production deployment, a passing CI run or an accurate live-schema export.*
+The administrator account may be provisioned **once** with `WEDFLOW_BOOTSTRAP_ADMIN_EMAIL` and `WEDFLOW_BOOTSTRAP_ADMIN_PASSWORD` (strong, 16–128 characters) as controlled runtime secrets. Remove them after successful bootstrapping. No public admin sign-up or auto-password reset is provided.
