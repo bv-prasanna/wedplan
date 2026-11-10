@@ -39,3 +39,12 @@ test("mutations send location only when there is short-lived consent",()=>{
  assert.match(app,/method !== "GET" && store.geo/);
  assert.match(app,/Date\.now\(\) - store.geo.at < 300000/);
 });
+
+test("finance controls remain administrator-owned and pending statuses are honest",()=>{
+ assert.match(app,/\/admin\/refundable-payments/);
+ assert.match(app,/\/admin\/refund-requests/);
+ assert.match(app,/data-admin-refund/);
+ assert.match(app,/deductionPaise/);
+ assert.match(app,/refund request queued|Refund request queued|Refund.*queued/i);
+ assert.doesNotMatch(app,/data-refund="\+/);
+});
