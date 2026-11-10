@@ -15,3 +15,9 @@ This is a functional initial web implementation, **not a certified production ap
 
 ## Security and privacy
 Access tokens are kept in per-tab sessionStorage (not persistent localStorage). Do not introduce unsafe inline event handlers or render API content as unescaped HTML. All write operations require the backend to enforce authorization; hiding navigation is not an authorization boundary. The frontend cannot securely determine GPS provenance from client headers.
+
+## Administrator finance and truthful statuses
+
+The customer payments tab no longer exposes an unrestricted refund submit form. The administrator page loads `/api/v1/admin/refundable-payments` and `/api/v1/admin/refund-requests`, requires a cancelled booking and recorded refund/deduction/reason, and submits a stable request key for retries. The API replies `202 QUEUED`; only a signed provider callback can complete a refund. A `REQUIRES_RECONCILIATION` record needs provider-side financial investigation, not another click to resubmit.
+
+A one-time SUPER_ADMIN account must be provisioned via backend controlled bootstrap before admin screens can be used. Production email verification, recovery and MFA remain backlog items. See [operators runbook](../docs/architecture-kt/DEPLOYMENT_MAINTENANCE_KT.md).
