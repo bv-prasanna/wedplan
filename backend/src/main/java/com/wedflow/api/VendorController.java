@@ -19,7 +19,26 @@ public class VendorController {
  public record EnquiryView(UUID id,UUID weddingId,UUID vendorId,String message,String status){}
  private void owner(UUID wedding){Integer count=db.queryForObject("SELECT COUNT(*) FROM weddings WHERE id=? AND owner_id=?",Integer.class,wedding,SecurityConfig.currentUser());if(count==null||count==0)throw new ResponseStatusException(HttpStatus.NOT_FOUND);}
  @GetMapping("/vendors") public List<VendorView> search(@RequestParam(required=false) String category,@RequestParam(required=false) String city){
-  return db.query("SELECT id,display_name,category,city FROM vendors WHERE approved=true AND (? IS NULL OR lower(category)=lower(?)) AND (? IS NULL OR lower(city)=lower(?)) ORDER BY display_name LIMIT 100",(rs,n)->new VendorView(rs.getObject("id",UUID.class),rs.getString("display_name"),rs.getString("category"),rs.getString("city")),category,category,city,city);
+  // Build parameterized predicates only when supplied. Binding NULL to
+  // "? IS NULL" can be ambiguous in PostgreSQL and breaks unfiltered search.
+  StringBuilder sql=new StringBuilder("SELECT id,display_name,category,city FROM vendors WHERE approved=true");
+  java.util.List<Object> args=new java.util.ArrayList<>();
+  if(category!=null&&!category.isBlank()){
+    String value=category.trim();
+    if(value.length()>80)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Category filter too long");
+    sql.append(" AND POSITION(lower(?) IN lower(category))>0");
+    args.add(value);
+  }
+  if(city!=null&&!city.isBlank()){
+    String value=city.trim();
+    if(value.length()>120)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"City filter too long");
+    sql.append(" AND POSITION(lower(?) IN lower(city))>0");
+    args.add(value);
+  }
+  sql.append(" ORDER BY display_name LIMIT 100");
+  return db.query(sql.toString(),
+    (rs,n)->new VendorView(rs.getObject("id",UUID.class),rs.getString("display_name"),
+      rs.getString("category"),rs.getString("city")),args.toArray());
  }
  @PostMapping("/weddings/{id}/enquiries") @ResponseStatus(HttpStatus.CREATED) @Transactional
  public EnquiryView enquire(@PathVariable UUID id,@Valid @RequestBody EnquiryInput in){
