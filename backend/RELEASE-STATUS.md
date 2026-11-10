@@ -1,34 +1,37 @@
-# WedFlow backend release status (2026-10-19)
+# WedFlow — release status (10 November 2026)
 
-**Not production ready.** The GitHub repository contains backend source, migrations and some unit tests. Successful pushes do not prove compilation, test execution, coverage or runtime correctness.
+**Current release decision: NOT UAT-CERTIFIED / NOT PRODUCTION-READY.**
 
-## Implemented source modules
-- Customer registration/login/logout and bearer token authentication, account profile and logout-all
-- Weddings, ceremonies, guests, RSVP, tasks and budget allocations
-- Vendor registration and admin approval/rejection
-- Vendor service listings, enquiries, quotations and quote acceptance
-- Vendor service-date availability, unique active vendor/day constraint, cancellation and reviews
-- Catering menus and dietary items
-- Payment intent records (PENDING only; no payment provider processing)
-- In-app notification inbox records and audit events
-- PostgreSQL Flyway V1–V6 migrations, JUnit tests and JaCoCo plugin
+## Source committed
 
-## Release blockers — mandatory
-1. Execute `mvn clean verify` using Java 21 and Maven; repair compilation and tests.
-2. Run Flyway V1–V6 against disposable PostgreSQL and run full integration tests including concurrent booking/payment requests.
-3. Add payment gateway integration and **server-verified** signed callbacks, idempotency, reconciliation, refunds, taxes and settlements; never mark payments VERIFIED based solely on client requests.
-4. Add rate limiting, verified email, password reset, secure admin bootstrap, fine-grained role authorization, token lifecycle and key management.
-5. Add production-ready notification delivery adapters, retries, outbox and monitoring.
-6. Add full booking cancellation policy, vendor calendars/time slots and payout workflow.
-7. Add negative-path API tests, tenant isolation, authorization tests, concurrency tests, migration tests and measured coverage.
-8. Add operational readiness: backups/restore drill, health checks, logs, observability, privacy/retention/deletion and deployment review.
+- Static responsive customer, vendor, and administrator web application in `web/`, with core wedding management, vendor search, quotes, bookings, payments and refund decision console.
+- Java 21 Spring Boot API with bcrypt, hashed bearer tokens, login throttling, strict owner/role access, protected approvals, safe structured error codes and request telemetry.
+- One-time `SUPER_ADMIN` bootstrap via controlled env-only secrets; no public role elevation.
+- Razorpay orders and signed webhooks, admin-only queued refund workflow with deduction/reason/request dedupe, a worker that does not auto-retry ambiguous provider outcomes, and reconciliation statuses.
+- In-app notifications and a recoverable, bounded email outbox (Brevo); SMS not operational.
+- Audit metadata, request ID/status/latency, optional consent-based client-report GPS; immutable/tamper-proof compliance audit still requires further design.
+- **Flyway V1–V12** and updated architecture, deployment, ER, schema dictionary, migration script, support/maintenance and customer KT plans.
+- Manual-only GitHub Actions workflow for web/Node and Java/JUnit/JaCoCo.
 
-## Cost controls
-No automatic GitHub Actions workflow was introduced. Execute tests locally. Open-source Java/PostgreSQL software has no license cost; hosting, SMS, email and payment processing may incur charges.
+## Source vs evidence distinction
 
-## Update — 2026-11-10 (committed source, not release verification)
-The `web/` customer, vendor and admin application has been added, with workflow screens for wedding planning, vendor discovery, booking, payments and notifications. New backend vendor-owned/admin-read endpoints, PII-free admin metrics, safer HTTP 400/401/403/404/405/409/415/429/500 error behavior, request IDs/status/latency telemetry, and a vendor approval quotation guard are in source. Flyway V8 location columns, V9 login throttling and V10 audit request context exist; the HTTP mutation audit interceptor records optional **client-reported** coordinates. Node helper checks and Java unit-test source have been added. The previously manual-only GitHub Actions workflow now includes Node syntax/tests plus Maven/JaCoCo.
+| Gate | Current evidence |
+|---|---|
+| Code committed to GitHub | Yes; verify actual release SHA in GitHub |
+| Web JS source syntax/utility assertions | Source-level checks performed; run full Node suite on release SHA |
+| Java 21 Maven build/JUnit/JaCoCo | Not verified |
+| PostgreSQL Flyway V1–V12 application | Not verified |
+| Razorpay live or sandbox webhook/refund integration | Not verified |
+| Frontend browser/device visual accessibility UAT | Not verified |
+| Backup restoration / zero-loss reconciliation | Not verified |
+| Production deployment / customer acceptance | Not verified |
 
-**Still blocked:** Java 21 Maven build and PostgreSQL migration/integration tests were not run in this environment; no successful CI run, JaCoCo result, live browser/device screenshots, accessibility report or Razorpay test-mode evidence has been verified. Full email/account verification, password recovery, admin bootstrap, payout settlement/reconciliation, robust notification crash recovery, vendor/guest/planner advanced requirements and full UAT remain incomplete. Do not promote the source as production-ready.
+## Functional blockers
 
-See [screen-by-screen UAT matrix](../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md) and [architecture runbook](../docs/architecture-kt/2026-11-10-REVIEW-UAT-KT.md).
+Email/account verification and password reset, staff MFA, robust vendor settlement/payouts, planner collaborators and staff permissions, itemized quote versions, guest seating/dietary planning, advanced analytics/support and full provider/notification reliability. Payment order creation still needs stronger provider reconciliation; refund PROCESSING/REQUIRES_RECONCILIATION requires external verification and staff action. Do not advertise automatic final refunds or payouts.
+
+## Deployment and operations
+
+Run `mvn -B -f backend/pom.xml clean verify`, `cd web && npm run verify` and migration validation on a disposable PostgreSQL instance. Do not apply migrations to production without signed backup/restore evidence. Only UAT against a verified Razorpay test merchant can establish financial state correctness.
+
+[Architecture and flow](../docs/architecture-kt/SYSTEM_ARCHITECTURE.md) · [Deployment](../docs/architecture-kt/DEPLOYMENT_TOPOLOGIES.md) · [ER](../docs/architecture-kt/ER_FULL_DOMAIN.md) · [SQL catalogue](../docs/architecture-kt/SCHEMA_INDEX.md) · [Migration script](../docs/architecture-kt/migrate-safe.sh) · [Maintenance and KT](../docs/architecture-kt/DEPLOYMENT_MAINTENANCE_KT.md) · [UAT](../docs/SCREEN-BY-SCREEN-UAT-2026-11-10.md).
