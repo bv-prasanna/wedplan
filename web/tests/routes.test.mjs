@@ -45,6 +45,7 @@ test("finance controls remain administrator-owned and pending statuses are hones
  assert.match(app,/\/admin\/refund-requests/);
  assert.match(app,/data-admin-refund/);
  assert.match(app,/deductionPaise/);
- assert.match(app,/refund request queued|Refund request queued|Refund.*queued/i);
+ assert.match(app,/Queue approved refund/);
+ assert.match(app,/Do not treat this as a completed provider refund/);
  assert.doesNotMatch(app,/data-refund="\+/);
 });
